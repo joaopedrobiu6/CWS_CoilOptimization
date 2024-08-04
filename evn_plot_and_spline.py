@@ -5,7 +5,18 @@ import operator
 
 #outdir1 = '/home/joaobiu/pic/results/evn_final_1/'
 
-outdir1 = 'evn_final_1/'
+#outdir1 = 'paper_evn_sweeping_1/'
+
+import sys
+if len(sys.argv) > 1:
+    outdir1 = sys.argv[1]
+else:
+    print("Please provide the directory of the data as an argument when running the script in the terminal.")
+    sys.exit()
+if outdir1[-1] != '/':
+    outdir1 += '/'
+
+
 
 def Read_Two_Column_File(file_name):
     with open(file_name, 'r') as data:
@@ -20,19 +31,19 @@ def Read_Two_Column_File(file_name):
 
 x1, y1 = Read_Two_Column_File(outdir1 + 'data.txt')
 
-def minimum(x, y):
-    #y_index = y.index(min(y))
+def minimum(x, y, savename, **kwargs):
     min_x = x[y.index(min(y))]
     min_y = min(y)
     
     plt.subplots(figsize=(6, 5))
-    plt.scatter(x , y, color = "#2ec77d", marker=".")
-    plt.scatter(min_x, min_y, label = f"minimum value of J: ({min_x:.5}, {min(y):.3e})")
-    plt.legend()
-    plt.title("Extend via normal factor variation")
-    plt.xlabel("extend_via_normal factor")
-    plt.ylabel("JF.J()")
-    plt.savefig(outdir1 + "opt_evn_factor.png", dpi = 300, bbox_inches = 'tight')
+    plt.scatter(x , y, color = "black", marker=".")
+    plt.tick_params(axis='both', which='major', labelsize=14)
+    plt.scatter(min_x, min_y)
+    plt.axvline(x=min_x, color='r', linestyle='--')
+    plt.xlabel("Rescaling Factor (RF)", fontsize=16)
+    plt.ylabel("Objective Function (J)", fontsize=16)
+    plt.xticks(kwargs["ticks"])
+    plt.savefig(savename, dpi = 300, bbox_inches = 'tight')
 
     return min_x, min_y
 
@@ -48,9 +59,28 @@ def sort(x, y):
     datafile_path = outdir1 + "sorted_values.txt"
     np.savetxt(datafile_path , data, fmt=['%f','%e'])
 
+# if the first value is higher than the last value, or the first value is lower than the last value
+# we cut the data at the first value that is lower than the last value
 
+if y1[0] > y1[-1]:
+    x2 = []
+    y2 = []
+    for i in range(len(y1)):
+        if y1[i] < y1[-1]:
+            x2.append(x1[i])
+            y2.append(y1[i])
+elif y1[0] < y1[-1]:
+    x2 = []
+    y2 = []
+    for i in range(len(y1)):
+        if y1[i] < y1[0]:
+            x2.append(x1[i])
+            y2.append(y1[i])
+else:
+    x2 = x1
+    y2 = y1
 
-x_min, y_min = minimum(x1, y1)
+x_min, y_min = minimum(x2, y2, savename = outdir1 + "opt_evn_factor_cut.png", ticks=np.linspace(0.145, 0.155, 6, endpoint=True))
 
 data = np.column_stack([x_min, y_min])
 datafile_path = outdir1 + "minimum.txt"

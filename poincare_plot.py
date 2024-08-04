@@ -14,23 +14,23 @@ comm = MPI.COMM_WORLD
 
 def pprint(*args, **kwargs): print(*args, **kwargs) if comm.rank == 0 else 1
 
-OUT_DIR = "./poincare_plots/"
+OUT_DIR = "./poincare_plots_new_circular/"
 os.makedirs(OUT_DIR, exist_ok=True) if comm.rank == 0 else 1
  
 ntheta = 50
 nphi = 42
 nzeta = 4
-nfieldlines = 12
-#nfieldlines = 3
+nfieldlines = 8
+#nfieldlines = 5
 
-tmax=3000
-#tmax=200
+#tmax=3000
+tmax=1000
 tol=1e-15
 
 filename_bs_final = 'biot_savart_opt.json'
-coils_directory = 'output_cws_final_minimum1'
+coils_directory = 'paper_output_cws_circular'
 
-input_file = 'wout_axiTorus_nfp3_QA_final_000_000000.nc'
+input_file = 'wout_final.nc'
 
 vmec = Vmec(input_file, ntheta=ntheta, nphi=nphi, mpi=mpi)
 vmec.run()
@@ -65,7 +65,7 @@ def trace_fieldlines(bfield, R0, Z0):
     t1 = time.time()
     phis = [(i/nzeta)*(2*np.pi/nfp) for i in range(nzeta)]
     fieldlines_tys, fieldlines_phi_hits = compute_fieldlines(
-        bfield, R0, Z0, tmax=tmax, tol=tol, comm=comm,
+        bfield, R0, Z0, tmax=tmax, tol=tol, comm=comm, 
         phis=phis, stopping_criteria=[])
     t2 = time.time()
     pprint(f"Time for fieldline tracing={t2-t1:.3f}s. Num steps={sum([len(l) for l in fieldlines_tys])//12}", flush=True)

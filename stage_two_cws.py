@@ -11,7 +11,7 @@ from simsopt.geo import (
     MeanSquaredCurvature, LpCurveCurvature, CurveCWSFourier, ArclengthVariation
 )
 
-OUT_DIR = "./output_cws_test_2024/"
+OUT_DIR = "./paper_output_cws/"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Threshold and weight for the maximum length of each individual coil:
@@ -50,7 +50,8 @@ ARCLENGTH_WEIGHT = 3e-8
 LENGTH_CON_WEIGHT = 0.1
 
 # SURFACE INPUT FILES FOR TESTING
-wout = 'input.axiTorus_nfp3_QA_final'
+#wout = 'input.axiTorus_nfp3_QA_final'
+wout = 'input.final'
 
 MAXITER = 2000 
 ncoils = 4
@@ -58,16 +59,20 @@ order = 10 # order of dofs of cws curves
 quadpoints = 300 #13 * order
 ntheta = 50
 nphi = 42
-ext_via_normal_factor = 0.2565
+theta_linspace = np.linspace(0, 1, ntheta, endpoint=True)
+phi_linspace = np.linspace(0, 1, nphi, endpoint=True)
+# ext_via_normal_factor = 0.2565
+ext_via_normal_factor = 0.1482
 #0.25216216216216214
 
 
 # CREATE FLUX SURFACE
-s = SurfaceRZFourier.from_vmec_input(wout, range="half period", ntheta=ntheta, nphi=nphi)
-s_full = SurfaceRZFourier.from_vmec_input(wout, range="full torus", ntheta=ntheta, nphi=int(nphi*2*s.nfp))
+s = SurfaceRZFourier.from_vmec_input(wout, range="half period", quadpoints_theta=theta_linspace, quadpoints_phi=phi_linspace)#ntheta=ntheta, nphi=nphi)
+phi_linspace_full = np.linspace(0, 1, int(nphi*2*s.nfp), endpoint=True)
+s_full = SurfaceRZFourier.from_vmec_input(wout, range="full torus", quadpoints_theta=theta_linspace, quadpoints_phi=phi_linspace_full)#ntheta=ntheta, nphi=int(nphi*2*s.nfp))
 # CREATE COIL WINDING SURFACE SURFACE
-cws = SurfaceRZFourier.from_vmec_input(wout, range="half period", ntheta=ntheta, nphi=nphi)
-cws_full = SurfaceRZFourier.from_vmec_input(wout, range="full torus", ntheta=ntheta, nphi=int(nphi*2*s.nfp))
+cws = SurfaceRZFourier.from_vmec_input(wout, range="half period", quadpoints_theta=theta_linspace, quadpoints_phi=phi_linspace)#ntheta=ntheta, nphi=nphi)
+cws_full = SurfaceRZFourier.from_vmec_input(wout, range="full torus", quadpoints_theta=theta_linspace, quadpoints_phi=phi_linspace_full)#ntheta=ntheta, nphi=int(nphi*2*s.nfp))
 
 cws.extend_via_normal(ext_via_normal_factor)
 cws_full.extend_via_normal(ext_via_normal_factor)
@@ -102,9 +107,9 @@ bs = BiotSavart(coils)
 
 bs.set_points(s_full.gamma().reshape((-1, 3)))
 curves = [c.curve for c in coils]
-curves_to_vtk(curves, OUT_DIR + "curves_init")
-curves_to_vtk(base_curves, OUT_DIR + "base_curves_init")
-pointData = {"B_N": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
+curves_to_vtk(curves, OUT_DIR + "curves_init", close=True)
+curves_to_vtk(base_curves, OUT_DIR + "base_curves_init", close=True)
+pointData = {"B.n": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
 s_full.to_vtk(OUT_DIR + "surf_init", extra_data=pointData)
 cws_full.to_vtk(OUT_DIR + "cws_init")
 
@@ -152,9 +157,9 @@ res = minimize(
 )
 
 bs.set_points(s_full.gamma().reshape((-1, 3)))
-curves_to_vtk(curves, OUT_DIR + "curves_opt")
-curves_to_vtk(base_curves, OUT_DIR + "base_curves_opt")
-pointData = {"B_N": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
+curves_to_vtk(curves, OUT_DIR + "curves_opt", close=True)
+curves_to_vtk(base_curves, OUT_DIR + "base_curves_opt", close=True)
+pointData = {"B.n": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
 s_full.to_vtk(OUT_DIR + "surf_opt", extra_data=pointData)
 cws_full.to_vtk(OUT_DIR + "cws_opt")
 bs.set_points(s.gamma().reshape((-1, 3)))

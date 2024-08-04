@@ -1,4 +1,7 @@
 import os
+import sys
+
+from sympy import O
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
@@ -11,6 +14,28 @@ from simsopt.field import BiotSavart, Current, coils_via_symmetries
 from simsopt.geo import (
     CurveLength, CurveCurveDistance, MeanSquaredCurvature, 
     LpCurveCurvature, CurveCWSFourier, ArclengthVariation)
+
+# Ask range in terminal
+min_rf = float(input("Enter the minimum value of the extend_via_normal factor: "))
+max_rf = float(input("Enter the maximum value of the extend_via_normal factor: "))
+# Ask step in terminal
+step = float(input("Enter the step value: "))
+# Ask output directory in terminal
+OUT_DIR = input("Enter the output directory ('./paper_evn_sweeping_X/'): ")
+if OUT_DIR[-1] != '/':
+    OUT_DIR += '/'
+# If the dir doesnt start with ./, add it
+if OUT_DIR[0:1] != './':
+    OUT_DIR = './' + OUT_DIR
+os.makedirs(OUT_DIR, exist_ok=True)
+
+# Ask if coils should be saved or not
+save_coils = input("Do you want to save the coils? (y/n): ")
+if save_coils != "y" and save_coils != "n":
+    print("Invalid input. Please enter 'y' or 'n'.")
+    sys.exit()
+
+factor_values = np.arange(min_rf, max_rf, step)
 
 def optimization_settings(LENGTH_THRESHOLD_, LENGTH_WEIGHT_, CC_THRESHOLD_, CC_WEIGHT_, CURVATURE_THRESHOLD_, 
                           CURVATURE_WEIGHT_, MSC_THRESHOLD_, MSC_WEIGHT_, ARCLENGTH_WEIGHT_, LENGTH_CON_WEIGHT_, MAXITER_):
@@ -39,8 +64,7 @@ def optimization_settings(LENGTH_THRESHOLD_, LENGTH_WEIGHT_, CC_THRESHOLD_, CC_W
  MSC_THRESHOLD, MSC_WEIGHT, ARCLENGTH_WEIGHT, 
  LENGTH_CON_WEIGHT, MAXITER) = optimization_settings(20, 1e-8, 0.1, 100, 60, 1e-5, 20, 1e-9, 3e-8, 0.1, 50)
 
-OUT_DIR = "./evn_sweeping_1/"
-os.makedirs(OUT_DIR, exist_ok=True)
+# OUT_DIR = "./paper_evn_sweeping_2/"
 
 ncoils = 4
 order = 10 # order of dofs of cws curves
@@ -48,7 +72,8 @@ quadpoints = 300 #13 * order
 ntheta = 50
 nphi = 42
 
-wout = '/home/joaobiu/simsopt_curvecws/examples/3_Advanced/input.axiTorus_nfp3_QA_final'
+# wout = '/home/joaobiu/simsopt_curvecws/examples/3_Advanced/input.axiTorus_nfp3_QA_final'
+wout= "input.final"
 
 # CREATE FLUX SURFACE
 s = SurfaceRZFourier.from_vmec_input(wout, range="half period", ntheta=ntheta, nphi=nphi)
@@ -86,18 +111,15 @@ def cws_and_curves(factor):
 
     return cws, cws_full, base_curves, base_currents
 
-#factor_values = np.arange(0.2560, 0.2570, 0.00001) #np.arange(0.250, 0.260, 0.0001)
-#factor_values = np.arange(0.247, 0.261, 0.0005)
-#factor_values = np.arange(0.1, 0.4, 0.002)
-
-factor_values = np.arange(0.25, 0.26, 0.0001)
+# factor_values = np.arange(0.2560, 0.2570, 0.00001) #np.arange(0.250, 0.260, 0.0001)
+# factor_values = np.arange(0.247, 0.261, 0.0005)
+# factor_values = np.arange(0.01, 0.1, 0.002) # 0.148
+# factor_values = np.arange(0.14, 0.15, 0.0001)
 
 
 J_values = []
 
 for i in factor_values:
-    OUT_DIR2 = f"./evn_sweeping_1/{i:.5f}/"
-    os.makedirs(OUT_DIR2, exist_ok=True)
     cws, cws_full, base_curves, base_currents = cws_and_curves(i)
 
     coils = coils_via_symmetries(base_curves, base_currents, s.nfp, True)
@@ -139,14 +161,17 @@ for i in factor_values:
         tol=1e-15,
     )
 
-    bs.set_points(s_full.gamma().reshape((-1, 3)))
-    curves_to_vtk(curves, OUT_DIR2 + "curves_opt")
-    curves_to_vtk(base_curves, OUT_DIR2 + "base_curves_opt")
-    pointData = {"B_N": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
-    s_full.to_vtk(OUT_DIR2 + "surf_opt", extra_data=pointData)
-    cws_full.to_vtk(OUT_DIR2 + "cws_opt")
-    bs.set_points(s.gamma().reshape((-1, 3)))
-    bs.save(OUT_DIR2 + "biot_savart_opt.json")
+    if save_coils == "y":
+        OUT_DIR2 = OUT_DIR + f"{i:.5f}/"
+        os.makedirs(OUT_DIR2, exist_ok=True)    
+        bs.set_points(s_full.gamma().reshape((-1, 3)))
+        curves_to_vtk(curves, OUT_DIR2 + "curves_opt")
+        curves_to_vtk(base_curves, OUT_DIR2 + "base_curves_opt")
+        pointData = {"B.n": np.sum(bs.B().reshape((int(nphi*2*s_full.nfp), ntheta, 3)) * s_full.unitnormal(), axis=2)[:, :, None]}
+        s_full.to_vtk(OUT_DIR2 + "surf_opt", extra_data=pointData)
+        cws_full.to_vtk(OUT_DIR2 + "cws_opt")
+        bs.set_points(s.gamma().reshape((-1, 3)))
+        bs.save(OUT_DIR2 + "biot_savart_opt.json")
 
     print(f"{i:.6f}:    {JF.J():.3e}")
     J_values.append(JF.J())
@@ -161,7 +186,7 @@ plt.title("Extend via normal factor variation")
 plt.xlabel("extend_via_normal factor")
 plt.ylabel("JF.J()")
 
-plt.savefig(f"{OUT_DIR}opt_evn_factor.png")
+plt.savefig(f"{OUT_DIR}_opt_evn_factor.png")
 plt.show()
 
 data = np.column_stack([factor_values, J_values])
